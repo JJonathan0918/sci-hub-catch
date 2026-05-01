@@ -30,3 +30,9 @@ dist-*/**
 i18n/*_zh_HK.ts
 i18n/*_zh_TW.ts
 *.bak
+
+# Local download/data artifacts
+pdfs_batch/
+pdfs_batch_ml/
+machine_learning_potential_experiments_1_1000.xlsx
+savedrecs-1-1000-search-atomic_clusters_and_photoelectron_spectroscopy.xlsx

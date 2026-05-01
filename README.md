@@ -1,154 +1,120 @@
-# Sci-Hub EVA <img src="images/SciHubEVA-icon.png" align="right" alt="logo" width="100" height="100" style="border: none; float: right;">
+# Sci-Hub EVA (Batch DOI Downloader)
 
-![Release](https://img.shields.io/github/release/leovan/SciHubEVA.svg)
-![License](https://img.shields.io/github/license/leovan/SciHubEVA.svg)
-![Issues](https://img.shields.io/github/issues/leovan/SciHubEVA.svg)
-![Downloads](https://img.shields.io/github/downloads/leovan/SciHubEVA/total.svg)
-
----
-
-## Introduction
-
-**Sci-Hub EVA** is a cross-platform [Sci-Hub](https://en.wikipedia.org/wiki/Sci-Hub) GUI application powered by Python and Qt.
+This repo now focuses on **batch PDF downloading from DOI lists** (especially Web of Science Excel exports), using CLI scripts with retry and resume support.
 
 > [!TIP]
-> Sci-Hub is protected by DDos-Guard. You need a clean IP to use SciHubEVA or use [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) to bypass it.
+> Sci-Hub availability is unstable and often protected by anti-bot systems. Success depends heavily on network path, IP quality, and valid cookies/session.
 
-## Query
+## What This Project Supports
 
-![](docs/images/scihub-eva-application-macos-en.png)
+- Batch read DOI values from one or more `.xlsx` files
+- Deduplicate DOI values across files
+- Download PDFs with retries and timeout controls
+- Resume from interruption (`downloaded_dois.txt`)
+- Track failures (`failed_dois.txt`)
+- Skip existing files (`--skip-existing`)
 
-Click `Open` button to choose where to save the downloaded files. Click `Show` button will open the directory where you set. Click <img style="width: 24px; vertical-align: middle;" src="images/icons/information.svg"> will show the `About` dialog.
+Main scripts:
 
-### Single Query
+- `scripts/scihub_with_cookies.py`: single DOI workflow, cookie-based session
+- `scripts/scihub_batch_excel.py`: batch workflow for Excel DOI columns
 
-Fill the `Query` and click `Rampage` button, then it will search and download the file. Currently, you can fill the query with `URL`, `PMID`, `DOI` or title.
+## Quick Start
 
-### Range Query
+### 1) Create and activate venv
 
-Range pattern in query is supported, e.g. `00.000/{1-99}` will download `00.000/1`, `00.000/2`, ... `00.000/99`. Zero padded format range pattern is allowed, e.g. `00.000/{01-99}` will download `00.000/01`, `00.000/02`, ... `00.000/99`.
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-### File Query
+### 2) Install dependencies
 
-Also you can download with a query list file, in which each line represents a query. Click `Load` button to load the query list file.
+```powershell
+python -m pip install -U pip
+python -m pip install requests lxml openpyxl
+```
 
-Right clicking the `Logs` area will popup menu, you can open the log file or log directory and export failed queries.
+### 3) Configure cookies
 
-## Preferences
+Open `scripts/scihub_with_cookies.py` and fill `COOKIES` with the values copied from browser DevTools for the target Sci-Hub host.
 
-Click <img style="width: 24px; vertical-align: middle;" src="images/icons/preferences.svg"> will open the `Preferences` dialog.
+You can also use:
 
-### API
+```powershell
+$env:SCIHUB_COOKIES_JSON='{"name":"value","name2":"value2"}'
+```
 
-![](docs/images/scihub-eva-preferences-api-macos-en.png)
+### 4) Run batch download
 
-Due to the unstable Sci-Hub host accessibility, it may fail to download PDFs sometimes, you can change and add other Sci-Hub URLs. Sometimes, Sci-Hub webpage may change, you need set the PDF, captcha ID, captcha image XPath correctly.
+```powershell
+.\.venv\Scripts\python.exe scripts/scihub_batch_excel.py `
+  savedrecs-1-1000-search-atomic_clusters_and_photoelectron_spectroscopy.xlsx `
+  machine_learning_potential_experiments_1_1000.xlsx `
+  -o pdfs_batch `
+  --delay 20 --resume --skip-existing
+```
 
-### Appearance
+## Expected Excel Format
 
-![](docs/images/scihub-eva-preferences-appearance-macos-en.png)
+The batch script auto-detects a header cell equal to `DOI` and reads that column.
 
-You can change language manually. Light and dark theme are supported, also you can choose `System` to fit system theme automatically. Changes will take effect after restart.
+For your current files, it detects:
 
-### File
+- header row: around row `11`
+- DOI column: `Q` (17th column)
 
-![](docs/images/scihub-eva-preferences-file-macos-en.png)
+If auto-detection fails, set manually:
 
-You can change filename prefix format with supported keywords. Setting overwrite existing file to `No` will add a timestamp suffix in filename to avoid overwriting previous downloaded files.
+```powershell
+--doi-column-letter Q
+```
 
-### Network
+## Resume / Failure Logic
 
-![](docs/images/scihub-eva-preferences-network-macos-en.png)
+- Successful DOI (or skipped-existing DOI) is appended to `downloaded_dois.txt`
+- Failed DOI is merged into `failed_dois.txt`
+- `--resume` skips DOI already in `downloaded_dois.txt`
+- With `--resume`, failed DOIs are also skipped by default
+- Use `--retry-failed` to explicitly retry failed DOIs
 
-You can set timeout and retry times. Also you can add a proxy server.
+## Useful Options
 
-## Captcha
+- `--delay 20`: sleep seconds between DOI attempts
+- `--limit 50`: process only first N remaining DOIs (for testing)
+- `--connect-timeout 120`: connect/TLS handshake timeout
+- `--timeout 300`: response read timeout
+- `--retries 4`: extra retries on transient network errors
+- `--base https://sci-hub.red/`: override host
 
-![](docs/images/scihub-eva-captcha-macos-en.png)
+Example (more tolerant for unstable VPN):
 
-Sometimes, you may need enter the captcha to continue.
+```powershell
+.\.venv\Scripts\python.exe scripts/scihub_batch_excel.py `
+  machine_learning_potential_experiments_1_1000.xlsx `
+  -o pdfs_batch_ml `
+  --delay 20 --resume --skip-existing `
+  --connect-timeout 120 --timeout 300 --retries 4
+```
 
-## Languages
+## Output Structure
 
-- English
-- Simplified Chinese (简体中文)
-- Traditional Chinese - Hongkong (繁體中文 - 香港)
-- Traditional Chinese - Taiwan (正體中文 - 臺灣)
-- Portuguese - Portugal
+Under your `-o` folder (for example `pdfs_batch/`):
 
-## Platform Support
+- downloaded PDFs (`*.pdf`)
+- `downloaded_dois.txt`
+- `failed_dois.txt`
 
-### macOS
+## Notes
 
-<table border="0">
-  <tr align="center">
-    <td><img src="docs/images/scihub-eva-application-macos-en-light-theme.png" /></td>
-    <td><img src="docs/images/scihub-eva-application-macos-en-dark-theme.png" /></td>
-  </tr>
-  <tr align="center">
-    <td>Light Theme</td>
-    <td>Dark Theme</td>
-  </tr>
-  </tr>
-</table>
+- Do not commit real cookie/session values.
+- Keep generated data and large PDFs out of Git (see `.gitignore`).
+- If network is unstable, prefer longer timeout + retries + resume.
 
-### Windows
+## GUI Notes (Optional)
 
-<table border="0">
-  <tr align="center">
-    <td><img src="docs/images/scihub-eva-application-windows-en-light-theme.png" /></td>
-    <td><img src="docs/images/scihub-eva-application-windows-en-dark-theme.png" /></td>
-  </tr>
-  <tr align="center">
-    <td>Light Theme</td>
-    <td>Dark Theme</td>
-  </tr>
-</table>
+The original GUI app is still present (`app.py`), but this README emphasizes the batch CLI flow.
 
-### Linux
-
-<table border="0">
-  <tr align="center">
-    <td><img src="docs/images/scihub-eva-application-linux-en-light-theme.png" /></td>
-    <td><img src="docs/images/scihub-eva-application-linux-en-dark-theme.png" /></td>
-  </tr>
-  <tr align="center">
-    <td>Light Theme</td>
-    <td>Dark Theme</td>
-  </tr>
-</table>
-
-## Installing
-
-### macOS
-
-- Install with [dmg file](https://github.com/leovan/SciHubEVA/releases).
-- Install with brew.
-
-  ```
-  brew install --cask scihubeva
-  ```
-
-### Windows
-
-- Install with [setup file](https://github.com/leovan/SciHubEVA/releases).
-- Install with scoop.
-
-  ```
-  scoop bucket add extras-plus https://github.com/Scoopforge/Extras-Plus
-  scoop install scihubeva
-  ```
-
-### Linux
-
-- Run the [AppImage file](https://github.com/leovan/SciHubEVA/releases). Using [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) is recommended.
-
-## Building
+## Building Original Desktop App
 
 See [`building/README.md`](building/README.md)
-
-## Licenses
-
-The MIT License (MIT)
-
-Copyright &copy; 2018-2026, <a href="https://leovan.me" target="_blank">范叶亮 | Leo Van</a>
